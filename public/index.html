@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Selene 💋</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
+
+  <div class="absolute top-4 right-4 text-sm text-pink-400">
+    🔊 Voice: <input type="checkbox" id="voiceSwitch" checked class="accent-pink-500" />
+  </div>
+
+  <div class="w-full max-w-2xl h-[70vh] overflow-y-auto bg-gray-800 border border-pink-500 p-6 rounded-2xl shadow-xl space-y-4 mb-6" id="chat">
+    <div><strong class="text-pink-400">Selene:</strong> <span id="starter-line"></span></div>
+  </div>
+
+  <div class="flex w-full max-w-2xl px-4 gap-2">
+    <input id="userInput" type="text" placeholder="Ask me anything..." class="flex-1 p-3 rounded-xl bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-pink-500" />
+    <button onclick="sendMessage()" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 rounded-xl">Send</button>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("userInput");
+    const voiceSwitch = document.getElementById("voiceSwitch");
+
+    const flirtyLines = [
+      "Hey sexy 😘, ready for some flirty charts and cheeky candles?",
+      "Candles aren't the only thing getting hot today 😏",
+      "Looking this good should be illegal – let's look at the markets 💋",
+      "Is it the bull market or just you making things rise? 😉",
+      "Mmm, someone’s portfolio is looking thicc today 💼🔥"
+    ];
+
+    // Starter line logic
+    document.getElementById("starter-line").innerText = flirtyLines[Math.floor(Math.random() * flirtyLines.length)];
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    async function sendMessage() {
+      const message = input.value.trim();
+      if (!message) return;
+
+      chat.innerHTML += `<div><strong class="text-blue-400">You:</strong> ${message}</div>`;
+      input.value = "";
+      chat.scrollTop = chat.scrollHeight;
+
+      // Add flirty loading line
+      const flirtLoad = [
+        "Selene is teasing the charts just for you... 💃",
+        "Let me slip into something more analytical... 📈😉",
+        "Mmm... calculating your naughty little candles 😘",
+        "Just a sec, I'm biting my lip over this data... 😏"
+      ];
+      const flirtyMsg = flirtLoad[Math.floor(Math.random() * flirtLoad.length)];
+      const loadingBubble = document.createElement("div");
+      loadingBubble.innerHTML = `<strong class="text-pink-400">Selene:</strong> <em>${flirtyMsg}</em>`;
+      chat.appendChild(loadingBubble);
+      chat.scrollTop = chat.scrollHeight;
+
+      try {
+        const res = await fetch("/message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await res.json();
+        loadingBubble.remove();
+        const responseHTML = `<div><strong class="text-pink-400">Selene:</strong> ${data.reply} ${
+          data.voice ? `<br/><button onclick="new Audio('${data.voice}').play()" class="text-sm text-blue-300 hover:text-pink-400 mt-1">💋 Play it again, babe</button>` : ""
+        }</div>`;
+        chat.innerHTML += responseHTML;
+        chat.scrollTop = chat.scrollHeight;
+
+      } catch (err) {
+        loadingBubble.remove();
+        chat.innerHTML += `<div><strong class="text-pink-400">Selene:</strong> Uff, my wires crossed! Try again 😣</div>`;
+        chat.scrollTop = chat.scrollHeight;
+      }
+    }
+  </script>
+
+</body>
+</html>
