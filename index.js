@@ -6,7 +6,7 @@ require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch');
+const fetch = require('node-fetch'); // Works with v2 for Render compatibility
 
 const app = express();
 app.use(bodyParser.json());
@@ -37,7 +37,7 @@ const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 // === ElevenLabs Voice ===
 async function getVoiceFromText(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || 'paSpixZoPGcawrMGNGKt';
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || 'eVItLK1UvXctxuaRV2Oq';
 
   const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: 'POST',
@@ -49,7 +49,7 @@ async function getVoiceFromText(text) {
       text: text,
       model_id: "eleven_multilingual_v2",
       voice_settings: {
-        stability: 0.35,
+        stability: 0.4,
         similarity_boost: 0.85
       }
     })
@@ -60,13 +60,14 @@ async function getVoiceFromText(text) {
     return null;
   }
 
-  const audioBuffer = await response.arrayBuffer();
+  const audioBuffer = await response.buffer();
   const filename = `selene-${Date.now()}.mp3`;
   const filepath = path.join(__dirname, 'public', filename);
-  fs.writeFileSync(filepath, Buffer.from(audioBuffer));
+  fs.writeFileSync(filepath, audioBuffer);
   return `/${filename}`;
 }
 
+// === In-memory conversation ===
 let conversation = [];
 
 app.post('/message', async (req, res) => {
@@ -112,8 +113,8 @@ app.post('/message', async (req, res) => {
 
     const reply = completion.choices[0].message.content;
     conversation.push({ role: 'assistant', content: reply });
-
     const voiceUrl = await getVoiceFromText(reply);
+
     const timestamp = new Date().toLocaleString();
     await sheets.spreadsheets.values.append({
       spreadsheetId,
