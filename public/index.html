@@ -2,22 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Selene 💋</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .chat-line { display: flex; align-items: center; justify-content: space-between; }
-    .replay-btn { cursor: pointer; color: #ec4899; margin-left: 10px; }
+    .chat-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .replay-btn {
+      cursor: pointer;
+      color: #ec4899;
+      margin-left: 10px;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
 
-  <div class="absolute top-4 right-4 text-sm text-pink-400">
+  <div class="absolute top-4 right-4 text-sm text-pink-400 flex items-center gap-4">
     🔊 Voice: <input type="checkbox" id="voiceSwitch" checked class="accent-pink-500" />
-    <button onclick="resetHistory()" class="ml-4 text-white bg-pink-600 px-2 py-1 rounded hover:bg-pink-700">🗑 Reset</button>
+    <button onclick="resetHistory()" class="text-white bg-pink-600 px-2 py-1 rounded hover:bg-pink-700">🗑 Reset</button>
   </div>
 
   <div class="w-full max-w-2xl h-[70vh] overflow-y-auto bg-gray-800 border border-pink-500 p-6 rounded-2xl shadow-xl space-y-4 mb-6" id="chat">
+    <div><strong class="text-pink-400">Selene:</strong> Hey sexy 😘, ready for some flirty charts and cheeky candles?</div>
   </div>
 
   <div class="flex w-full max-w-2xl px-4 gap-2">
@@ -37,35 +47,29 @@
     function appendMessage(sender, text, voiceUrl) {
       const messageDiv = document.createElement("div");
       messageDiv.className = "chat-line";
-      messageDiv.innerHTML = `<strong class="${sender === 'You' ? 'text-blue-400' : 'text-pink-400'}">${sender}:</strong> <span>${text}</span>`;
+
+      const strong = document.createElement("strong");
+      strong.className = sender === "You" ? "text-blue-400" : "text-pink-400";
+      strong.textContent = `${sender}:`;
+
+      const span = document.createElement("span");
+      span.textContent = text;
+
+      messageDiv.appendChild(strong);
+      messageDiv.appendChild(span);
+
       if (voiceUrl) {
         const replay = document.createElement("span");
         replay.className = "replay-btn";
-        replay.innerText = "🔁";
+        replay.textContent = "🔁";
         replay.onclick = () => new Audio(voiceUrl).play();
         messageDiv.appendChild(replay);
         lastVoice = voiceUrl;
       }
+
       chat.appendChild(messageDiv);
       chat.scrollTop = chat.scrollHeight;
     }
-
-    function resetHistory() {
-      localStorage.removeItem("seleneChat");
-      chat.innerHTML = "";
-    }
-
-    function saveChat() {
-      localStorage.setItem("seleneChat", chat.innerHTML);
-    }
-
-    function loadChat() {
-      chat.innerHTML = localStorage.getItem("seleneChat") || "<div><strong class='text-pink-400'>Selene:</strong> Hey sexy 😘, ready for some flirty charts and cheeky candles?</div>";
-    }
-
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter") sendMessage();
-    });
 
     async function sendMessage() {
       const message = input.value.trim();
@@ -83,7 +87,6 @@
 
         const data = await res.json();
         appendMessage("Selene", data.reply, data.voice);
-        loading.innerText = "";
         if (voiceSwitch.checked && data.voice) {
           const audio = new Audio(data.voice);
           audio.play();
@@ -91,11 +94,44 @@
         saveChat();
       } catch (err) {
         appendMessage("Selene", "Uff, my wires crossed! Try again 😣");
+      } finally {
         loading.innerText = "";
       }
     }
 
+    async function resetHistory() {
+      const confirmed = confirm("Wipe Selene's memory? 😏");
+      if (!confirmed) return;
+      try {
+        const res = await fetch("/reset", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          chat.innerHTML = `<div><strong class='text-pink-400'>Selene:</strong> Mmm... My mind is blank now, darling. Let’s start fresh 💋</div>`;
+          localStorage.removeItem("seleneChat");
+        }
+      } catch (err) {
+        appendMessage("Selene", "Ugh... I forgot how to forget. Try again 😫");
+      }
+    }
+
+    function saveChat() {
+      localStorage.setItem("seleneChat", chat.innerHTML);
+    }
+
+    function loadChat() {
+      const saved = localStorage.getItem("seleneChat");
+      if (saved) {
+        chat.innerHTML = saved;
+        chat.scrollTop = chat.scrollHeight;
+      }
+    }
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendMessage();
+    });
+
     window.onload = loadChat;
   </script>
+
 </body>
 </html>

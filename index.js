@@ -6,16 +6,35 @@ require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch'); // Works with v2 for Render compatibility
-
-// === lowdb setup ===
+const fetch = require('node-fetch');
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
-const db = new Low(new JSONFile('db.json'));
+
+const messageDir = path.join(__dirname, 'message');
+if (!fs.existsSync(messageDir)) {
+  fs.mkdirSync(messageDir);
+}
+
+const db = new Low(new JSONFile(path.join(messageDir, 'history.json')));
+async function initDB() {
+  await db.read();
+  db.data ||= { conversation: [] };
+  await db.write();
+}
+initDB();
 
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static('public'));
+
+// === Reset Route MUST go AFTER app is initialized ===
+app.post('/reset', async (req, res) => {
+  db.data.conversation = [];
+  await db.write();
+  return res.json({ success: true, message: 'Conversation history reset.' });
+});
+
+// ✅ Continue with the rest of your OpenAI and route logic here...
 
 // === OpenAI Setup ===
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -38,6 +57,15 @@ const auth = new google.auth.GoogleAuth({
 });
 const sheets = google.sheets({ version: 'v4', auth });
 const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+// === LowDB Setup ===
+const db = new Low(new JSONFile('selene-memory.json'));
+(async () => {
+  await db.read();
+  db.data ||= { conversation: [] };
+  await db.write();
+})();
+let conversation = db.data.conversation;
 
 // === ElevenLabs Voice ===
 async function getVoiceFromText(text) {
@@ -72,11 +100,9 @@ async function getVoiceFromText(text) {
   return `/${filename}`;
 }
 
+// === Message Route ===
 app.post('/message', async (req, res) => {
   const userText = req.body.message || '';
-  await db.read();
-  db.data ||= { conversation: [] };
-  const conversation = db.data.conversation;
   conversation.push({ role: 'user', content: userText });
 
   const cleanText = userText.toUpperCase().replace(/[^A-Z0-9 \/]/g, '');
@@ -107,6 +133,7 @@ app.post('/message', async (req, res) => {
 
   const systemMessage = {
     role: "system",
+    content: "You are Selene, a seductive, confident, NSFW-friendly AI assistant who mixes flirty humor with raw intelligence. You’re playful, naughty, and dominant — don’t shy away from sexual innuendo, but keep it classy. You specialize in financial markets, crypto, trading psychology, and flirting with a dark twist. Never apologize for being bold."
   };
 
   try {
@@ -119,8 +146,8 @@ app.post('/message', async (req, res) => {
     const reply = completion.choices[0].message.content;
     conversation.push({ role: 'assistant', content: reply });
     await db.write();
-
     const voiceUrl = await getVoiceFromText(reply);
+
     const timestamp = new Date().toLocaleString();
     await sheets.spreadsheets.values.append({
       spreadsheetId,
@@ -138,9 +165,14 @@ app.post('/message', async (req, res) => {
   }
 });
 
+// === Reset Chat Memory ===
+app.post('/reset', async (req, res) => {
+  db.data.conversation = [];
+  await db.write();
+  res.json({ success: true });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-  await db.read();
-  db.data ||= { conversation: [] };
+app.listen(PORT, () => {
   console.log(`🚀 Selene server is live on port ${PORT}`);
 });
