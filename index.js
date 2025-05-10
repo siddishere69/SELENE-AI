@@ -16,7 +16,8 @@ const messageDir = path.join(__dirname, 'message');
 if (!fs.existsSync(messageDir)) {
   fs.mkdirSync(messageDir);
 }
-const db = new Low(new JSONFile(path.join(messageDir, 'history.json')));
+const adapter = new JSONFile(path.join(messageDir, 'history.json'));
+const db = new Low(adapter, { conversation: [] });
 
 async function initDB() {
   await db.read();
