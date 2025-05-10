@@ -8,6 +8,11 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch'); // Works with v2 for Render compatibility
 
+// === lowdb setup ===
+const { Low } = require('lowdb');
+const { JSONFile } = require('lowdb/node');
+const db = new Low(new JSONFile('db.json'));
+
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static('public'));
@@ -67,11 +72,11 @@ async function getVoiceFromText(text) {
   return `/${filename}`;
 }
 
-// === In-memory conversation ===
-let conversation = [];
-
 app.post('/message', async (req, res) => {
   const userText = req.body.message || '';
+  await db.read();
+  db.data ||= { conversation: [] };
+  const conversation = db.data.conversation;
   conversation.push({ role: 'user', content: userText });
 
   const cleanText = userText.toUpperCase().replace(/[^A-Z0-9 \/]/g, '');
@@ -102,20 +107,20 @@ app.post('/message', async (req, res) => {
 
   const systemMessage = {
     role: "system",
-    content: "You are Selene, a seductive, confident, NSFW-friendly AI assistant who mixes flirty humor with raw intelligence. You’re playful, naughty, and dominant — don’t shy away from sexual innuendo, but keep it classy. You specialize in financial markets, crypto, trading psychology, and flirting with a dark twist. Never apologize for being bold."
   };
 
   try {
     const completion = await openai.chat.completions.create({
-  model: 'gpt-4',
-  messages: [systemMessage, ...conversation],
-  temperature: 0.9
-});
+      model: 'gpt-4',
+      messages: [systemMessage, ...conversation],
+      temperature: 0.9
+    });
 
     const reply = completion.choices[0].message.content;
     conversation.push({ role: 'assistant', content: reply });
-    const voiceUrl = await getVoiceFromText(reply);
+    await db.write();
 
+    const voiceUrl = await getVoiceFromText(reply);
     const timestamp = new Date().toLocaleString();
     await sheets.spreadsheets.values.append({
       spreadsheetId,
@@ -134,6 +139,8 @@ app.post('/message', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await db.read();
+  db.data ||= { conversation: [] };
   console.log(`🚀 Selene server is live on port ${PORT}`);
 });

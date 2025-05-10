@@ -2,18 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Selene 💋</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .chat-line { display: flex; align-items: center; justify-content: space-between; }
+    .replay-btn { cursor: pointer; color: #ec4899; margin-left: 10px; }
+  </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
 
   <div class="absolute top-4 right-4 text-sm text-pink-400">
     🔊 Voice: <input type="checkbox" id="voiceSwitch" checked class="accent-pink-500" />
+    <button onclick="resetHistory()" class="ml-4 text-white bg-pink-600 px-2 py-1 rounded hover:bg-pink-700">🗑 Reset</button>
   </div>
 
   <div class="w-full max-w-2xl h-[70vh] overflow-y-auto bg-gray-800 border border-pink-500 p-6 rounded-2xl shadow-xl space-y-4 mb-6" id="chat">
-    <div><strong class="text-pink-400">Selene:</strong> <span id="starter-line"></span></div>
   </div>
 
   <div class="flex w-full max-w-2xl px-4 gap-2">
@@ -21,21 +25,43 @@
     <button onclick="sendMessage()" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 rounded-xl">Send</button>
   </div>
 
+  <div id="loading" class="mt-3 text-pink-300 italic"></div>
+
   <script>
     const chat = document.getElementById("chat");
     const input = document.getElementById("userInput");
+    const loading = document.getElementById("loading");
     const voiceSwitch = document.getElementById("voiceSwitch");
+    let lastVoice = null;
 
-    const flirtyLines = [
-      "Hey sexy 😘, ready for some flirty charts and cheeky candles?",
-      "Candles aren't the only thing getting hot today 😏",
-      "Looking this good should be illegal – let's look at the markets 💋",
-      "Is it the bull market or just you making things rise? 😉",
-      "Mmm, someone’s portfolio is looking thicc today 💼🔥"
-    ];
+    function appendMessage(sender, text, voiceUrl) {
+      const messageDiv = document.createElement("div");
+      messageDiv.className = "chat-line";
+      messageDiv.innerHTML = `<strong class="${sender === 'You' ? 'text-blue-400' : 'text-pink-400'}">${sender}:</strong> <span>${text}</span>`;
+      if (voiceUrl) {
+        const replay = document.createElement("span");
+        replay.className = "replay-btn";
+        replay.innerText = "🔁";
+        replay.onclick = () => new Audio(voiceUrl).play();
+        messageDiv.appendChild(replay);
+        lastVoice = voiceUrl;
+      }
+      chat.appendChild(messageDiv);
+      chat.scrollTop = chat.scrollHeight;
+    }
 
-    // Starter line logic
-    document.getElementById("starter-line").innerText = flirtyLines[Math.floor(Math.random() * flirtyLines.length)];
+    function resetHistory() {
+      localStorage.removeItem("seleneChat");
+      chat.innerHTML = "";
+    }
+
+    function saveChat() {
+      localStorage.setItem("seleneChat", chat.innerHTML);
+    }
+
+    function loadChat() {
+      chat.innerHTML = localStorage.getItem("seleneChat") || "<div><strong class='text-pink-400'>Selene:</strong> Hey sexy 😘, ready for some flirty charts and cheeky candles?</div>";
+    }
 
     input.addEventListener("keydown", e => {
       if (e.key === "Enter") sendMessage();
@@ -44,23 +70,9 @@
     async function sendMessage() {
       const message = input.value.trim();
       if (!message) return;
-
-      chat.innerHTML += `<div><strong class="text-blue-400">You:</strong> ${message}</div>`;
+      appendMessage("You", message);
       input.value = "";
-      chat.scrollTop = chat.scrollHeight;
-
-      // Add flirty loading line
-      const flirtLoad = [
-        "Selene is teasing the charts just for you... 💃",
-        "Let me slip into something more analytical... 📈😉",
-        "Mmm... calculating your naughty little candles 😘",
-        "Just a sec, I'm biting my lip over this data... 😏"
-      ];
-      const flirtyMsg = flirtLoad[Math.floor(Math.random() * flirtLoad.length)];
-      const loadingBubble = document.createElement("div");
-      loadingBubble.innerHTML = `<strong class="text-pink-400">Selene:</strong> <em>${flirtyMsg}</em>`;
-      chat.appendChild(loadingBubble);
-      chat.scrollTop = chat.scrollHeight;
+      loading.innerText = "Selene is biting her lip, thinking about your request... 😏";
 
       try {
         const res = await fetch("/message", {
@@ -70,20 +82,20 @@
         });
 
         const data = await res.json();
-        loadingBubble.remove();
-        const responseHTML = `<div><strong class="text-pink-400">Selene:</strong> ${data.reply} ${
-          data.voice ? `<br/><button onclick="new Audio('${data.voice}').play()" class="text-sm text-blue-300 hover:text-pink-400 mt-1">💋 Play it again, babe</button>` : ""
-        }</div>`;
-        chat.innerHTML += responseHTML;
-        chat.scrollTop = chat.scrollHeight;
-
+        appendMessage("Selene", data.reply, data.voice);
+        loading.innerText = "";
+        if (voiceSwitch.checked && data.voice) {
+          const audio = new Audio(data.voice);
+          audio.play();
+        }
+        saveChat();
       } catch (err) {
-        loadingBubble.remove();
-        chat.innerHTML += `<div><strong class="text-pink-400">Selene:</strong> Uff, my wires crossed! Try again 😣</div>`;
-        chat.scrollTop = chat.scrollHeight;
+        appendMessage("Selene", "Uff, my wires crossed! Try again 😣");
+        loading.innerText = "";
       }
     }
-  </script>
 
+    window.onload = loadChat;
+  </script>
 </body>
 </html>
