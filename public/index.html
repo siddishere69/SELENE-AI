@@ -1,28 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Selene 💋</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    .bubble {
+      max-width: 80%;
+      padding: 10px 16px;
+      border-radius: 20px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .user-bubble {
+      background-color: #3b82f6;
+      align-self: flex-start;
+    }
+    .selene-bubble {
+      background-color: #ec4899;
+      align-self: flex-end;
+    }
     .chat-line {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      margin-bottom: 1rem;
-    }
-    .bubble {
-      padding: 0.75rem 1rem;
-      border-radius: 1rem;
-      max-width: 80%;
-      display: inline-block;
-      position: relative;
+      margin-bottom: 12px;
     }
     .replay-btn {
       cursor: pointer;
-      color: #ec4899;
       margin-left: 8px;
+      color: white;
     }
   </style>
 </head>
@@ -33,11 +40,9 @@
     <button onclick="resetHistory()" class="text-white bg-pink-600 px-2 py-1 rounded hover:bg-pink-700">🗑 Reset</button>
   </div>
 
-  <div class="w-full max-w-2xl h-[70vh] overflow-y-auto bg-gray-800 border border-pink-500 p-6 rounded-2xl shadow-xl space-y-4 mb-6" id="chat">
+  <div id="chat" class="w-full max-w-2xl h-[70vh] overflow-y-auto bg-gray-800 border border-pink-500 p-6 rounded-2xl shadow-xl mb-6 flex flex-col">
     <div class="chat-line">
-      <div class="bubble bg-pink-700 text-white self-start">
-        <strong>Selene:</strong> Hey sexy 😘, ready for some flirty charts and cheeky candles?
-      </div>
+      <div class="bubble selene-bubble self-end">Hey sexy 😘, ready for some flirty charts and cheeky candles?</div>
     </div>
   </div>
 
@@ -53,28 +58,26 @@
     const input = document.getElementById("userInput");
     const loading = document.getElementById("loading");
     const voiceSwitch = document.getElementById("voiceSwitch");
-    let lastVoice = null;
 
     function appendMessage(sender, text, voiceUrl) {
-      const wrapper = document.createElement("div");
-      wrapper.className = "chat-line";
+      const line = document.createElement("div");
+      line.className = "chat-line";
 
       const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.classList.add(sender === "You" ? "bg-blue-600", "self-end" : "bg-pink-700", "self-start");
-      bubble.innerHTML = `<strong>${sender}:</strong> <span>${text}</span>`;
+      bubble.className = `bubble ${sender === "You" ? "user-bubble self-start" : "selene-bubble self-end"}`;
+      bubble.textContent = text;
 
-      if (voiceUrl && sender === "Selene") {
+      line.appendChild(bubble);
+
+      if (voiceUrl) {
         const replay = document.createElement("span");
         replay.className = "replay-btn";
-        replay.textContent = "🔁";
+        replay.innerText = "🔁";
         replay.onclick = () => new Audio(voiceUrl).play();
-        bubble.appendChild(replay);
-        lastVoice = voiceUrl;
+        line.appendChild(replay);
       }
 
-      wrapper.appendChild(bubble);
-      chat.appendChild(wrapper);
+      chat.appendChild(line);
       chat.scrollTop = chat.scrollHeight;
     }
 
@@ -83,7 +86,7 @@
       if (!message) return;
       appendMessage("You", message);
       input.value = "";
-      loading.innerText = "Selene is biting her lip, thinking about your request... 😏";
+      loading.innerText = "Selene is thinking... 😏";
 
       try {
         const res = await fetch("/message", {
@@ -94,30 +97,25 @@
 
         const data = await res.json();
         appendMessage("Selene", data.reply, data.voice);
+
         if (voiceSwitch.checked && data.voice) {
-          const audio = new Audio(data.voice);
-          audio.play();
+          new Audio(data.voice).play();
         }
+
         saveChat();
-      } catch (err) {
-        appendMessage("Selene", "Uff, my wires crossed! Try again 😣");
+      } catch {
+        appendMessage("Selene", "Oops... I tripped over my wires 😖");
       } finally {
         loading.innerText = "";
       }
     }
 
-    async function resetHistory() {
-      const confirmed = confirm("Wipe Selene's memory? 😏");
-      if (!confirmed) return;
-      try {
-        const res = await fetch("/reset", { method: "POST" });
-        const data = await res.json();
-        if (data.success) {
-          chat.innerHTML = `<div class="chat-line"><div class="bubble bg-pink-700 text-white self-start"><strong>Selene:</strong> Mmm... My mind is blank now, darling. Let’s start fresh 💋</div></div>`;
+    function resetHistory() {
+      if (confirm("Wipe Selene’s memory? 😈")) {
+        fetch("/reset", { method: "POST" }).then(() => {
+          chat.innerHTML = `<div class="chat-line"><div class="bubble selene-bubble self-end">Mmm... My mind is blank now, darling. Let’s start fresh 💋</div></div>`;
           localStorage.removeItem("seleneChat");
-        }
-      } catch (err) {
-        appendMessage("Selene", "Ugh... I forgot how to forget. Try again 😫");
+        });
       }
     }
 
@@ -127,10 +125,7 @@
 
     function loadChat() {
       const saved = localStorage.getItem("seleneChat");
-      if (saved) {
-        chat.innerHTML = saved;
-        chat.scrollTop = chat.scrollHeight;
-      }
+      if (saved) chat.innerHTML = saved;
     }
 
     input.addEventListener("keydown", e => {
@@ -139,6 +134,5 @@
 
     window.onload = loadChat;
   </script>
-
 </body>
 </html>
