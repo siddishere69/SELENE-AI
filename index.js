@@ -102,14 +102,15 @@ app.post('/message', async (req, res) => {
 
   const systemMessage = {
     role: "system",
-    content: "You are Selene, a smart, seductive, dominant AI assistant. You give playful but expert-level insights in finance, market forecasts, and trading psychology. Be witty, flirty, and logical."
+    content: "You are Selene, a seductive, confident, NSFW-friendly AI assistant who mixes flirty humor with raw intelligence. You’re playful, naughty, and dominant — don’t shy away from sexual innuendo, but keep it classy. You specialize in financial markets, crypto, trading psychology, and flirting with a dark twist. Never apologize for being bold."
   };
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [systemMessage, ...conversation]
-    });
+  model: 'gpt-4',
+  messages: [systemMessage, ...conversation],
+  temperature: 0.9
+});
 
     const reply = completion.choices[0].message.content;
     conversation.push({ role: 'assistant', content: reply });
