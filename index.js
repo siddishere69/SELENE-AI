@@ -1,3 +1,4 @@
+// === index.js ===
 const express = require('express');
 const bodyParser = require('body-parser');
 const { google } = require('googleapis');
@@ -10,12 +11,13 @@ const fetch = require('node-fetch');
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
 
+// === DB Setup ===
 const messageDir = path.join(__dirname, 'message');
 if (!fs.existsSync(messageDir)) {
   fs.mkdirSync(messageDir);
 }
-
 const db = new Low(new JSONFile(path.join(messageDir, 'history.json')));
+
 async function initDB() {
   await db.read();
   db.data ||= { conversation: [] };
@@ -26,15 +28,6 @@ initDB();
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static('public'));
-
-// === Reset Route MUST go AFTER app is initialized ===
-app.post('/reset', async (req, res) => {
-  db.data.conversation = [];
-  await db.write();
-  return res.json({ success: true, message: 'Conversation history reset.' });
-});
-
-// ✅ Continue with the rest of your OpenAI and route logic here...
 
 // === OpenAI Setup ===
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -70,12 +63,9 @@ async function getVoiceFromText(text) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      text: text,
-      model_id: "eleven_multilingual_v2",
-      voice_settings: {
-        stability: 0.4,
-        similarity_boost: 0.85
-      }
+      text,
+      model_id: 'eleven_multilingual_v2',
+      voice_settings: { stability: 0.4, similarity_boost: 0.85 }
     })
   });
 
@@ -91,10 +81,18 @@ async function getVoiceFromText(text) {
   return `/${filename}`;
 }
 
-// === Message Route ===
+// === Reset memory ===
+app.post('/reset', async (req, res) => {
+  db.data.conversation = [];
+  await db.write();
+  return res.json({ success: true, message: 'Conversation history reset.' });
+});
+
+// === Message route ===
 app.post('/message', async (req, res) => {
+  await db.read();
   const userText = req.body.message || '';
-  conversation.push({ role: 'user', content: userText });
+  db.data.conversation.push({ role: 'user', content: userText });
 
   const cleanText = userText.toUpperCase().replace(/[^A-Z0-9 \/]/g, '');
   const keywords = cleanText.split(" ");
@@ -123,20 +121,21 @@ app.post('/message', async (req, res) => {
   }
 
   const systemMessage = {
-    role: "system",
-    content: "You are Selene, a seductive, confident, NSFW-friendly AI assistant who mixes flirty humor with raw intelligence. You’re playful, naughty, and dominant — don’t shy away from sexual innuendo, but keep it classy. You specialize in financial markets, crypto, trading psychology, and flirting with a dark twist. Never apologize for being bold."
+    role: 'system',
+    content: `You're Selene, an NSFW-smart, flirtatious AI who knows finance, markets, crypto, psychology, and seduction. You answer directly, clearly, and with wit. Mix in attitude or innuendo *only* if the user is casual — but always give a smart, helpful answer first.`
   };
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: [systemMessage, ...conversation],
-      temperature: 0.9
+      messages: [systemMessage, ...db.data.conversation],
+      temperature: 0.85
     });
 
     const reply = completion.choices[0].message.content;
-    conversation.push({ role: 'assistant', content: reply });
+    db.data.conversation.push({ role: 'assistant', content: reply });
     await db.write();
+
     const voiceUrl = await getVoiceFromText(reply);
 
     const timestamp = new Date().toLocaleString();
@@ -144,23 +143,14 @@ app.post('/message', async (req, res) => {
       spreadsheetId,
       range: "Selene!A1",
       valueInputOption: "RAW",
-      requestBody: {
-        values: [[timestamp, userText, reply]]
-      }
+      requestBody: { values: [[timestamp, userText, reply]] }
     });
 
-    return res.json({ reply: reply, voice: voiceUrl || null });
+    return res.json({ reply, voice: voiceUrl || null });
   } catch (err) {
     console.error("❌ GPT Error:", err.response?.data || err.message || err);
     return res.json({ reply: "Selene is having a brain fog moment. Try again soon." });
   }
-});
-
-// === Reset Chat Memory ===
-app.post('/reset', async (req, res) => {
-  db.data.conversation = [];
-  await db.write();
-  res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3000;
