@@ -58,15 +58,6 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: 'v4', auth });
 const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-// === LowDB Setup ===
-const db = new Low(new JSONFile('selene-memory.json'));
-(async () => {
-  await db.read();
-  db.data ||= { conversation: [] };
-  await db.write();
-})();
-let conversation = db.data.conversation;
-
 // === ElevenLabs Voice ===
 async function getVoiceFromText(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
