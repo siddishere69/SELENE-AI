@@ -1,5 +1,7 @@
 // === index.js ===
 const express = require('express');
+const concepts = require('./concepts');
+const backtest = require('./backtest');
 const bodyParser = require('body-parser');
 const { google } = require('googleapis');
 const OpenAI = require('openai');
@@ -17,7 +19,7 @@ if (!fs.existsSync(messageDir)) {
   fs.mkdirSync(messageDir);
 }
 const adapter = new JSONFile(path.join(messageDir, 'history.json'));
-const db = new Low(adapter, { conversation: [] }); // FIXED: Added default data here
+const db = new Low(adapter);
 
 async function initDB() {
   await db.read();
@@ -87,6 +89,21 @@ app.post('/message', async (req, res) => {
   await db.read();
   const userText = req.body.message || '';
   db.data.conversation.push({ role: 'user', content: userText });
+  // === Save new concept ===
+if (userText.toLowerCase().startsWith('add concept:')) {
+  const conceptText = userText.split(':')[1]?.trim();
+  if (!conceptText) return res.json({ reply: "You need to tell me the concept after 'add concept:'" });
+
+  concepts.saveConcept(conceptText);
+  return res.json({ reply: `Got it! Added this to your concept list: "${conceptText}"` });
+}
+
+// === Combine all concepts into strategy ===
+if (userText.toLowerCase().includes('combine concepts')) {
+  const strategy = concepts.generateStrategyFromConcepts();
+  return res.json({ reply: strategy });
+}
+
   // === Financial Modeling Prep News API ===
 if (userText.toLowerCase().includes('news')) {
   try {
