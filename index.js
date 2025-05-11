@@ -17,7 +17,7 @@ if (!fs.existsSync(messageDir)) {
   fs.mkdirSync(messageDir);
 }
 const adapter = new JSONFile(path.join(messageDir, 'history.json'));
-const db = new Low(adapter, { conversation: [] });
+const db = new Low(adapter);
 
 async function initDB() {
   await db.read();
@@ -123,14 +123,14 @@ app.post('/message', async (req, res) => {
 
   const systemMessage = {
     role: 'system',
-    content: `You're Selene, an NSFW-smart, flirtatious AI who knows finance, markets, crypto, psychology, and seduction. You answer directly, clearly, and with wit. Mix in attitude or innuendo *only* if the user is casual — but always give a smart, helpful answer first.`
+    content: `You're Selene, an NSFW-smart, flirtatious AI who knows finance, markets, crypto, psychology, and seduction. Always give direct, helpful answers first. Add flirty attitude or sass if the user is casual. Format lists clearly with new lines.`
   };
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [systemMessage, ...db.data.conversation],
-      temperature: 0.85
+      temperature: 0.9
     });
 
     const reply = completion.choices[0].message.content;
