@@ -36,7 +36,7 @@
 
   <div class="absolute top-4 right-4 text-sm text-pink-400 flex items-center gap-4">
     🔊 Voice: <input type="checkbox" id="voiceSwitch" checked class="accent-pink-500" />
-    <button onclick="resetHistory()" class="text-white bg-pink-600 px-2 py-1 rounded hover:bg-pink-700">🗑 Reset</button>
+    <button onclick="clearScreen()" class="text-white bg-pink-600 px-2 py-1 rounded hover:bg-pink-700">🧹 Clear Screen</button>
   </div>
 
   <div class="w-full max-w-2xl h-[70vh] overflow-y-auto bg-gray-800 border border-pink-500 p-6 rounded-2xl shadow-xl space-y-4 mb-6" id="chat">
@@ -52,7 +52,6 @@
     const chat = document.getElementById("chat");
     const input = document.getElementById("userInput");
     const voiceSwitch = document.getElementById("voiceSwitch");
-    let lastVoice = null;
 
     const flirtyLines = [
       "Selene is biting her lip, thinking hard… 😏",
@@ -76,7 +75,6 @@
         replay.innerText = "🔊 Hear Selene again";
         replay.onclick = () => new Audio(voiceUrl).play();
         messageDiv.appendChild(replay);
-        lastVoice = voiceUrl;
       }
 
       chat.appendChild(messageDiv);
@@ -114,19 +112,9 @@
       }
     }
 
-    async function resetHistory() {
-      const confirmed = confirm("Wipe Selene's memory? 😏");
-      if (!confirmed) return;
-      try {
-        const res = await fetch("/reset", { method: "POST" });
-        const data = await res.json();
-        if (data.success) {
-          chat.innerHTML = `<div><strong class='text-pink-400'>Selene:</strong> Mmm... My mind is blank now, darling. Let’s start fresh 💋</div>`;
-          localStorage.removeItem("seleneChat");
-        }
-      } catch {
-        appendMessage("Selene", "I’m stuck in a naughty loop. Try again 😉");
-      }
+    function clearScreen() {
+      chat.innerHTML = `<div><strong class='text-pink-400'>Selene:</strong> Let’s start fresh, darling 💋</div>`;
+      localStorage.removeItem("seleneChat");
     }
 
     function saveChat() {

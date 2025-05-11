@@ -82,18 +82,25 @@ async function getVoiceFromText(text) {
   return `/${filename}`;
 }
 
-// === Reset memory ===
-app.post('/reset', async (req, res) => {
-  db.data.conversation = [];
-  await db.write();
-  return res.json({ success: true, message: 'Conversation history reset.' });
-});
-
 // === Message route ===
 app.post('/message', async (req, res) => {
   await db.read();
   const userText = req.body.message || '';
   db.data.conversation.push({ role: 'user', content: userText });
+  // === Financial Modeling Prep News API ===
+if (userText.toLowerCase().includes('news')) {
+  try {
+    const newsRes = await axios.get(`https://financialmodelingprep.com/api/v3/stock_news?limit=5&apikey=${process.env.FMP_API_KEY}`);
+    const articles = newsRes.data.map(item => `• ${item.title}`).join('\n');
+    const reply = `Here are the top 5 financial news headlines right now:\n${articles}`;
+    const voiceUrl = await getVoiceFromText(reply);
+    return res.json({ reply, voice: voiceUrl || null });
+  } catch (err) {
+    console.error("FMP News Error:", err.message);
+    return res.json({ reply: "Selene couldn't fetch news at the moment. Try again soon." });
+  }
+}
+
 
   const cleanText = userText.toUpperCase().replace(/[^A-Z0-9 \/]/g, '');
   const keywords = cleanText.split(" ");
