@@ -8,22 +8,27 @@
   <style>
     .chat-line {
       display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      white-space: pre-wrap;
+      flex-direction: column;
+      margin-bottom: 12px;
+    }
+    .loading-line {
+      font-style: italic;
+      color: #f9a8d4;
+      padding-left: 1rem;
     }
     .replay-btn {
       cursor: pointer;
-      color: #ec4899;
-      margin-left: 10px;
+      font-size: 0.875rem;
+      margin-top: 4px;
+      color: #f472b6;
+      background-color: #1f2937;
+      padding: 4px 10px;
+      border-radius: 0.5rem;
+      display: inline-block;
+      width: fit-content;
     }
-    .selene-tag {
-      background-color: #ec4899;
-      color: white;
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 9999px;
-      font-weight: bold;
+    .replay-btn:hover {
+      background-color: #374151;
     }
   </style>
 </head>
@@ -43,39 +48,32 @@
     <button onclick="sendMessage()" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 rounded-xl">Send</button>
   </div>
 
-  <div id="loading" class="mt-3 text-pink-300 italic"></div>
-
   <script>
     const chat = document.getElementById("chat");
     const input = document.getElementById("userInput");
-    const loading = document.getElementById("loading");
     const voiceSwitch = document.getElementById("voiceSwitch");
     let lastVoice = null;
+
+    const flirtyLines = [
+      "Selene is biting her lip, thinking hard… 😏",
+      "She’s teasing the candles to reveal their secrets… 🔥",
+      "Ooh, you're turning me on with that question… 😉",
+      "Selene's whispering sweet nothings to the charts… 💋",
+      "Let me wrap my brain around this... tightly 😘"
+    ];
 
     function appendMessage(sender, text, voiceUrl) {
       const messageDiv = document.createElement("div");
       messageDiv.className = "chat-line";
 
-      const strong = document.createElement("strong");
-      strong.className = sender === "You" ? "text-blue-400" : "text-pink-400";
-      strong.textContent = `${sender}:`;
-
-      const span = document.createElement("span");
-
-      // Format Selene replies into new lines or bullets
-      if (sender === "Selene" && text.includes('\n')) {
-        span.innerHTML = text.trim().split('\n').map(line => `• ${line.trim()}`).join('<br>');
-      } else {
-        span.textContent = text;
-      }
-
-      messageDiv.appendChild(strong);
-      messageDiv.appendChild(span);
+      const contentLine = document.createElement("div");
+      contentLine.innerHTML = `<strong class="${sender === 'You' ? 'text-blue-400' : 'text-pink-400'}">${sender}:</strong> <span>${text}</span>`;
+      messageDiv.appendChild(contentLine);
 
       if (voiceUrl) {
         const replay = document.createElement("span");
         replay.className = "replay-btn";
-        replay.textContent = "🔁";
+        replay.innerText = "🔊 Hear Selene again";
         replay.onclick = () => new Audio(voiceUrl).play();
         messageDiv.appendChild(replay);
         lastVoice = voiceUrl;
@@ -83,14 +81,20 @@
 
       chat.appendChild(messageDiv);
       chat.scrollTop = chat.scrollHeight;
+      return messageDiv;
     }
 
     async function sendMessage() {
       const message = input.value.trim();
       if (!message) return;
-      appendMessage("You", message);
+
+      const userDiv = appendMessage("You", message);
       input.value = "";
-      loading.innerText = "Selene is biting her lip, thinking about your request... 😏";
+
+      const loadingLine = document.createElement("div");
+      loadingLine.className = "loading-line";
+      loadingLine.innerText = flirtyLines[Math.floor(Math.random() * flirtyLines.length)];
+      userDiv.appendChild(loadingLine);
 
       try {
         const res = await fetch("/message", {
@@ -101,28 +105,27 @@
 
         const data = await res.json();
         appendMessage("Selene", data.reply, data.voice);
-        if (voiceSwitch.checked && data.voice) {
-          const audio = new Audio(data.voice);
-          audio.play();
-        }
+        if (voiceSwitch.checked && data.voice) new Audio(data.voice).play();
         saveChat();
-      } catch (err) {
-        appendMessage("Selene", "Uff, my wires crossed! Try again 😣");
+      } catch {
+        appendMessage("Selene", "Ugh... I forgot how to answer that. Try again 😖");
       } finally {
-        loading.innerText = "";
+        loadingLine.remove();
       }
     }
 
-    function resetHistory() {
-      if (confirm("Wipe Selene's memory? 😏")) {
-        fetch("/reset", { method: "POST" })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success) {
-              chat.innerHTML = `<div><strong class='text-pink-400'>Selene:</strong> Mmm... My mind is blank now, darling. Let’s start fresh 💋</div>`;
-              localStorage.removeItem("seleneChat");
-            }
-          });
+    async function resetHistory() {
+      const confirmed = confirm("Wipe Selene's memory? 😏");
+      if (!confirmed) return;
+      try {
+        const res = await fetch("/reset", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          chat.innerHTML = `<div><strong class='text-pink-400'>Selene:</strong> Mmm... My mind is blank now, darling. Let’s start fresh 💋</div>`;
+          localStorage.removeItem("seleneChat");
+        }
+      } catch {
+        appendMessage("Selene", "I’m stuck in a naughty loop. Try again 😉");
       }
     }
 
@@ -139,10 +142,7 @@
     }
 
     input.addEventListener("keydown", e => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        sendMessage();
-      }
+      if (e.key === "Enter") sendMessage();
     });
 
     window.onload = loadChat;
