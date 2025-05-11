@@ -13,15 +13,13 @@ const { JSONFile } = require('lowdb/node');
 
 // === DB Setup ===
 const messageDir = path.join(__dirname, 'message');
-if (!fs.existsSync(messageDir)) {
-  fs.mkdirSync(messageDir);
-}
+if (!fs.existsSync(messageDir)) fs.mkdirSync(messageDir);
 const adapter = new JSONFile(path.join(messageDir, 'history.json'));
 const db = new Low(adapter);
 
 async function initDB() {
   await db.read();
-  db.data ||= { conversation: [] };
+  if (!db.data) db.data = { conversation: [] };
   await db.write();
 }
 initDB();
@@ -47,7 +45,10 @@ const auth = new google.auth.GoogleAuth({
     auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
     client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
   },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
+  scopes: [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive',
+  ],
 });
 const sheets = google.sheets({ version: 'v4', auth });
 const spreadsheetId = process.env.GOOGLE_SHEET_ID;
@@ -56,7 +57,6 @@ const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 async function getVoiceFromText(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const voiceId = process.env.ELEVENLABS_VOICE_ID || 'eVItLK1UvXctxuaRV2Oq';
-
   const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: 'POST',
     headers: {
@@ -69,12 +69,10 @@ async function getVoiceFromText(text) {
       voice_settings: { stability: 0.4, similarity_boost: 0.85 }
     })
   });
-
   if (!response.ok) {
     console.error("❌ ElevenLabs Voice Error:", await response.text());
     return null;
   }
-
   const audioBuffer = await response.buffer();
   const filename = `selene-${Date.now()}.mp3`;
   const filepath = path.join(__dirname, 'public', filename);
@@ -89,7 +87,7 @@ app.post('/reset', async (req, res) => {
   return res.json({ success: true, message: 'Conversation history reset.' });
 });
 
-// === Message route ===
+// === Message Route ===
 app.post('/message', async (req, res) => {
   await db.read();
   const userText = req.body.message || '';
@@ -123,14 +121,14 @@ app.post('/message', async (req, res) => {
 
   const systemMessage = {
     role: 'system',
-    content: `You're Selene, an NSFW-smart, flirtatious AI who knows finance, markets, crypto, psychology, and seduction. Always give direct, helpful answers first. Add flirty attitude or sass if the user is casual. Format lists clearly with new lines.`
+    content: `You're Selene — intelligent, playful, seductive. You're great at giving smart financial and trading answers in bullet points or clear lines. You're confident and flirty when needed but never avoid the real answer.`
   };
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [systemMessage, ...db.data.conversation],
-      temperature: 0.9
+      temperature: 0.85
     });
 
     const reply = completion.choices[0].message.content;
