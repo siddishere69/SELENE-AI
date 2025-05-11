@@ -19,7 +19,7 @@ if (!fs.existsSync(messageDir)) {
   fs.mkdirSync(messageDir);
 }
 const adapter = new JSONFile(path.join(messageDir, 'history.json'));
-const db = new Low(adapter);
+const db = new Low(adapter, { conversation: [] }); // ✅ Fix: Provide defaultData
 
 async function initDB() {
   await db.read();
@@ -89,6 +89,13 @@ app.post('/message', async (req, res) => {
   await db.read();
   const userText = req.body.message || '';
   db.data.conversation.push({ role: 'user', content: userText });
+  if (userText.toLowerCase().startsWith('backtest this:')) {
+  const concept = userText.split(':')[1]?.trim();
+  if (!concept) return res.json({ reply: "Please describe the concept to backtest." });
+
+  const result = backtest.backtestSimpleStrategy(concept);
+  return res.json({ reply: result });
+}
   // === Save new concept ===
 if (userText.toLowerCase().startsWith('add concept:')) {
   const conceptText = userText.split(':')[1]?.trim();
