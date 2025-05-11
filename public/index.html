@@ -33,6 +33,16 @@
   </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
+  <div class="fixed top-4 left-4 bg-gray-800 text-pink-300 text-sm border border-pink-500 rounded-xl p-3 shadow-lg max-w-xs z-50">
+  <div class="font-bold text-white mb-2">🧠 Selene Commands</div>
+  <ul class="list-disc list-inside space-y-1">
+    <li><strong>add concept:</strong> your pattern</li>
+    <li><strong>combine concepts</strong></li>
+    <li><strong>backtest this:</strong> concept on EURUSD timeframe 15m</li>
+    <li><strong>news</strong></li>
+    <li><strong>BTC</strong>, <strong>ETH</strong>, etc.</li>
+  </ul>
+</div>
 
   <div class="absolute top-4 right-4 text-sm text-pink-400 flex items-center gap-4">
     🔊 Voice: <input type="checkbox" id="voiceSwitch" checked class="accent-pink-500" />
@@ -135,5 +145,6 @@
 
     window.onload = loadChat;
   </script>
+  <script src="strategy-helper.js"></script>
 </body>
 </html>

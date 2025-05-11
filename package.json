@@ -17,6 +17,7 @@
     "fs": "^0.0.1-security",
     "googleapis": "^148.0.0",
     "lowdb": "^7.0.1",
+    "node-binance-api": "^1.0.8",
     "node-fetch": "^2.7.0",
     "openai": "^4.98.0"
   }

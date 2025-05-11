@@ -2,6 +2,7 @@
 const express = require('express');
 const concepts = require('./concepts');
 const backtest = require('./backtest');
+const binanceAPI = require('./binance');
 const bodyParser = require('body-parser');
 const { google } = require('googleapis');
 const OpenAI = require('openai');
@@ -15,11 +16,9 @@ const { JSONFile } = require('lowdb/node');
 
 // === DB Setup ===
 const messageDir = path.join(__dirname, 'message');
-if (!fs.existsSync(messageDir)) {
-  fs.mkdirSync(messageDir);
-}
+if (!fs.existsSync(messageDir)) fs.mkdirSync(messageDir);
 const adapter = new JSONFile(path.join(messageDir, 'history.json'));
-const db = new Low(adapter, { conversation: [] }); // ✅ Fix: Provide defaultData
+const db = new Low(adapter, { conversation: [] });
 
 async function initDB() {
   await db.read();
@@ -89,43 +88,56 @@ app.post('/message', async (req, res) => {
   await db.read();
   const userText = req.body.message || '';
   db.data.conversation.push({ role: 'user', content: userText });
-  if (userText.toLowerCase().startsWith('backtest this:')) {
-  const concept = userText.split(':')[1]?.trim();
-  if (!concept) return res.json({ reply: "Please describe the concept to backtest." });
 
-  const result = backtest.backtestSimpleStrategy(concept);
-  return res.json({ reply: result });
-}
-  // === Save new concept ===
-if (userText.toLowerCase().startsWith('add concept:')) {
-  const conceptText = userText.split(':')[1]?.trim();
-  if (!conceptText) return res.json({ reply: "You need to tell me the concept after 'add concept:'" });
-
-  concepts.saveConcept(conceptText);
-  return res.json({ reply: `Got it! Added this to your concept list: "${conceptText}"` });
-}
-
-// === Combine all concepts into strategy ===
-if (userText.toLowerCase().includes('combine concepts')) {
-  const strategy = concepts.generateStrategyFromConcepts();
-  return res.json({ reply: strategy });
-}
-
-  // === Financial Modeling Prep News API ===
-if (userText.toLowerCase().includes('news')) {
-  try {
-    const newsRes = await axios.get(`https://financialmodelingprep.com/api/v3/stock_news?limit=5&apikey=${process.env.FMP_API_KEY}`);
-    const articles = newsRes.data.map(item => `• ${item.title}`).join('\n');
-    const reply = `Here are the top 5 financial news headlines right now:\n${articles}`;
-    const voiceUrl = await getVoiceFromText(reply);
-    return res.json({ reply, voice: voiceUrl || null });
-  } catch (err) {
-    console.error("FMP News Error:", err.message);
-    return res.json({ reply: "Selene couldn't fetch news at the moment. Try again soon." });
+  // Add concept
+  if (userText.toLowerCase().startsWith('add concept:')) {
+    const conceptText = userText.split(':')[1]?.trim();
+    if (!conceptText) return res.json({ reply: "You need to tell me the concept after 'add concept:'" });
+    concepts.addConcept(conceptText);
+    return res.json({ reply: `Got it! Added this to your concept list: \"${conceptText}\"` });
   }
-}
 
+  // Combine concepts
+  if (userText.toLowerCase().includes('combine concepts')) {
+    const strategy = concepts.generateStrategyFromConcepts();
+    return res.json({ reply: strategy });
+  }
 
+  // Backtest
+  if (userText.toLowerCase().startsWith('backtest this:')) {
+    const concept = userText.split(':')[1]?.trim();
+    const result = backtest.backtestSimpleStrategy(concept);
+    return res.json({ reply: result });
+  }
+
+  // Binance balance
+  if (userText.toLowerCase().includes('my balance')) {
+    try {
+      const balances = await binanceAPI.getAccountBalance();
+      const reply = `Here's your Binance balance:\n${JSON.stringify(balances.BTC)}`;
+      const voiceUrl = await getVoiceFromText(reply);
+      return res.json({ reply, voice: voiceUrl || null });
+    } catch (err) {
+      console.error("Binance Balance Error:", err.message);
+      return res.json({ reply: "Selene couldn't fetch your Binance balance." });
+    }
+  }
+
+  // News API
+  if (userText.toLowerCase().includes('news')) {
+    try {
+      const newsRes = await axios.get(`https://financialmodelingprep.com/api/v3/stock_news?limit=5&apikey=${process.env.FMP_API_KEY}`);
+      const articles = newsRes.data.map(item => `• ${item.title}`).join('\n');
+      const reply = `Here are the top 5 financial news headlines right now:\n${articles}`;
+      const voiceUrl = await getVoiceFromText(reply);
+      return res.json({ reply, voice: voiceUrl || null });
+    } catch (err) {
+      console.error("FMP News Error:", err.message);
+      return res.json({ reply: "Selene couldn't fetch news at the moment." });
+    }
+  }
+
+  // Symbol price
   const cleanText = userText.toUpperCase().replace(/[^A-Z0-9 \/]/g, '');
   const keywords = cleanText.split(" ");
   const symbolMap = {
@@ -139,19 +151,16 @@ if (userText.toLowerCase().includes('news')) {
     const symbol = symbolMap[found];
     try {
       const tdRes = await axios.get(`https://api.twelvedata.com/price?symbol=${symbol}&apikey=${process.env.TWELVE_DATA_KEY}`);
-      if (tdRes.data.status === "error") {
-        return res.json({ reply: `Selene couldn't find ${symbol}. Try another one.` });
-      }
       const price = tdRes.data.price;
-      const priceReply = `The current price of ${symbol} is $${price}.`;
-      const voiceUrl = await getVoiceFromText(priceReply);
-      return res.json({ reply: priceReply, voice: voiceUrl || null });
+      const reply = `The current price of ${symbol} is $${price}.`;
+      const voiceUrl = await getVoiceFromText(reply);
+      return res.json({ reply, voice: voiceUrl || null });
     } catch (err) {
-      console.error("TwelveData Error:", err.message);
       return res.json({ reply: `Selene can't fetch ${symbol} right now.` });
     }
   }
 
+  // Default GPT response
   const systemMessage = {
     role: 'system',
     content: `You're Selene, a seductive but smart financial AI. Always answer clearly and helpfully first. Add confident, flirty energy *only* when appropriate.`
@@ -169,7 +178,6 @@ if (userText.toLowerCase().includes('news')) {
     await db.write();
 
     const voiceUrl = await getVoiceFromText(reply);
-
     const timestamp = new Date().toLocaleString();
     await sheets.spreadsheets.values.append({
       spreadsheetId,
@@ -180,7 +188,7 @@ if (userText.toLowerCase().includes('news')) {
 
     return res.json({ reply, voice: voiceUrl || null });
   } catch (err) {
-    console.error("❌ GPT Error:", err.response?.data || err.message || err);
+    console.error("❌ GPT Error:", err.response?.data || err.message);
     return res.json({ reply: "Selene is having a brain fog moment. Try again soon." });
   }
 });
