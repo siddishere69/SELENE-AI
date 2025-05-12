@@ -123,19 +123,34 @@ app.post('/message', async (req, res) => {
     }
   }
 
-  // News API
-  if (userText.toLowerCase().includes('news')) {
-    try {
-      const newsRes = await axios.get(`https://financialmodelingprep.com/api/v3/stock_news?limit=5&apikey=${process.env.FMP_API_KEY}`);
-      const articles = newsRes.data.map(item => `• ${item.title}`).join('\n');
-      const reply = `Here are the top 5 financial news headlines right now:\n${articles}`;
-      const voiceUrl = await getVoiceFromText(reply);
-      return res.json({ reply, voice: voiceUrl || null });
-    } catch (err) {
-      console.error("FMP News Error:", err.message);
-      return res.json({ reply: "Selene couldn't fetch news at the moment." });
-    }
+  if (userText.toLowerCase().includes("calendar")) {
+  try {
+    const calRes = await axios.get("http://127.0.0.1:5050/calendar");
+    const upcoming = calRes.data.events.map(
+      (e, i) => `${i + 1}. ${e.country} - ${e.event} (${e.date})`
+    ).join('\n');
+    const reply = `📅 Here are upcoming economic events:\n${upcoming}`;
+    const voiceUrl = await getVoiceFromText(reply);
+    return res.json({ reply, voice: voiceUrl });
+  } catch (err) {
+    console.error("Calendar API Error:", err.message);
+    return res.json({ reply: "Couldn't fetch calendar data 😵" });
   }
+}
+
+// === NewsData.io API ===
+if (userText.toLowerCase().includes('news')) {
+  try {
+    const newsRes = await axios.get(`https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_API_KEY}&q=finance&language=en`);
+    const articles = newsRes.data.results.slice(0, 5).map(item => `• ${item.title}`).join('\n');
+    const reply = `Here are the top 5 financial news headlines right now:\n${articles}`;
+    const voiceUrl = await getVoiceFromText(reply);
+    return res.json({ reply, voice: voiceUrl || null });
+  } catch (err) {
+    console.error("NewsData Error:", err.message);
+    return res.json({ reply: "Selene couldn't fetch news at the moment. Try again soon." });
+  }
+}
 
   // Symbol price
   const cleanText = userText.toUpperCase().replace(/[^A-Z0-9 \/]/g, '');

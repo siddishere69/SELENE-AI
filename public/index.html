@@ -30,19 +30,38 @@
     .replay-btn:hover {
       background-color: #374151;
     }
+    .command-box {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      background: #1f2937;
+      color: #f9a8d4;
+      padding: 1rem;
+      border: 1px solid #f472b6;
+      border-radius: 1rem;
+      font-size: 0.875rem;
+      max-width: 15rem;
+      z-index: 10;
+    }
+    .command-box ul {
+      margin-top: 0.5rem;
+      list-style-type: disc;
+      padding-left: 1rem;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
-  <div class="fixed top-4 left-4 bg-gray-800 text-pink-300 text-sm border border-pink-500 rounded-xl p-3 shadow-lg max-w-xs z-50">
-  <div class="font-bold text-white mb-2">🧠 Selene Commands</div>
-  <ul class="list-disc list-inside space-y-1">
-    <li><strong>add concept:</strong> your pattern</li>
-    <li><strong>combine concepts</strong></li>
-    <li><strong>backtest this:</strong> concept on EURUSD timeframe 15m</li>
-    <li><strong>news</strong></li>
-    <li><strong>BTC</strong>, <strong>ETH</strong>, etc.</li>
-  </ul>
-</div>
+
+  <div class="command-box">
+    <div class="font-bold text-white mb-2">💡 Selene Commands</div>
+    <ul>
+      <li><strong>add concept:</strong> your pattern</li>
+      <li><strong>combine concepts</strong></li>
+      <li><strong>backtest this:</strong> BOS + OB on BTCUSD timeframe 15m</li>
+      <li><strong>news</strong></li>
+      <li><strong>BTC</strong>, <strong>ETH</strong>, etc.</li>
+    </ul>
+  </div>
 
   <div class="absolute top-4 right-4 text-sm text-pink-400 flex items-center gap-4">
     🔊 Voice: <input type="checkbox" id="voiceSwitch" checked class="accent-pink-500" />
@@ -76,7 +95,8 @@
       messageDiv.className = "chat-line";
 
       const contentLine = document.createElement("div");
-      contentLine.innerHTML = `<strong class="${sender === 'You' ? 'text-blue-400' : 'text-pink-400'}">${sender}:</strong> <span>${text}</span>`;
+      const formatted = text.replace(/\n/g, '<br/>');
+      contentLine.innerHTML = `<strong class="${sender === 'You' ? 'text-blue-400' : 'text-pink-400'}">${sender}:</strong> <span>${formatted}</span>`;
       messageDiv.appendChild(contentLine);
 
       if (voiceUrl) {
@@ -145,6 +165,5 @@
 
     window.onload = loadChat;
   </script>
-  <script src="strategy-helper.js"></script>
 </body>
 </html>
