@@ -1,169 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Selene 💋</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selene Pro Chart</title>
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
-    .chat-line {
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #0f1115;
+      color: #e3e3e3;
+      font-family: 'Segoe UI', sans-serif;
+      height: 100%;
+    }
+    body {
+      display: flex;
+      overflow: hidden;
+    }
+    #sidebar {
+      background-color: #181c24;
+      width: 240px;
+      padding: 1rem;
       display: flex;
       flex-direction: column;
-      margin-bottom: 12px;
+      gap: 1rem;
+      border-right: 1px solid #2b313d;
     }
-    .loading-line {
-      font-style: italic;
-      color: #f9a8d4;
-      padding-left: 1rem;
+    #sidebar h2 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
     }
-    .replay-btn {
+    #sidebar ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    #sidebar li {
+      padding: 0.5rem;
       cursor: pointer;
-      font-size: 0.875rem;
-      margin-top: 4px;
-      color: #f472b6;
-      background-color: #1f2937;
-      padding: 4px 10px;
-      border-radius: 0.5rem;
-      display: inline-block;
-      width: fit-content;
+      border-radius: 6px;
     }
-    .replay-btn:hover {
-      background-color: #374151;
+    #sidebar li:hover {
+      background: #2a2f3a;
     }
-    .command-box {
-      position: fixed;
-      top: 1rem;
-      left: 1rem;
-      background: #1f2937;
-      color: #f9a8d4;
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #0f1115;
+    }
+    header {
+      background: #1a1c22;
       padding: 1rem;
-      border: 1px solid #f472b6;
-      border-radius: 1rem;
-      font-size: 0.875rem;
-      max-width: 15rem;
-      z-index: 10;
+      font-size: 1.4rem;
+      text-align: center;
     }
-    .command-box ul {
-      margin-top: 0.5rem;
-      list-style-type: disc;
-      padding-left: 1rem;
+    #controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: #1c1f26;
+      padding: 0.5rem;
+    }
+    select, button, input[type=range], input[type=datetime-local] {
+      padding: 0.5rem;
+      border-radius: 6px;
+      background: #2a2e38;
+      color: white;
+      border: 1px solid #444;
+      font-size: 1rem;
+    }
+    #chart-container {
+      flex: 1;
+      background-color: #0f1115;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #chart {
+      flex: 1;
+      width: 100%;
+      background-color: #0f1115;
+    }
+    #backtest-data {
+      padding: 1rem;
+      background: #1a1c22;
+      color: #bbb;
+      font-size: 0.9rem;
+      height: 150px;
+      overflow-y: auto;
+    }
+    .profile-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #444;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    .profile-menu {
+      display: none;
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 5px;
+      box-shadow: 0 0 10px #000;
+      z-index: 1001;
+    }
+    .profile-menu div {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      color: #eee;
+      white-space: nowrap;
+    }
+    .profile-menu div:hover {
+      background: #333;
     }
   </style>
 </head>
-<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
-
-  <div class="command-box">
-    <div class="font-bold text-white mb-2">💡 Selene Commands</div>
-    <ul>
-      <li><strong>add concept:</strong> your pattern</li>
-      <li><strong>combine concepts</strong></li>
-      <li><strong>backtest this:</strong> BOS + OB on BTCUSD timeframe 15m</li>
-      <li><strong>news</strong></li>
-      <li><strong>BTC</strong>, <strong>ETH</strong>, etc.</li>
-    </ul>
+<body>
+  <div class="profile-btn" onclick="toggleProfileMenu()">👤 Profile</div>
+  <div class="profile-menu" id="profileMenu">
+    <div onclick="window.location.href='chat.html'">Selene Assistant</div>
   </div>
 
-  <div class="absolute top-4 right-4 text-sm text-pink-400 flex items-center gap-4">
-    🔊 Voice: <input type="checkbox" id="voiceSwitch" checked class="accent-pink-500" />
-    <button onclick="clearScreen()" class="text-white bg-pink-600 px-2 py-1 rounded hover:bg-pink-700">🧹 Clear Screen</button>
+  <div id="sidebar">
+    <div>
+      <h2>📊 Strategies</h2>
+      <ul>
+        <li onclick="selectConcept('BOS Retest')">BOS Retest</li>
+        <li onclick="selectConcept('Order Block')">Order Block</li>
+      </ul>
+    </div>
+    <div>
+      <h2>🧠 Concepts</h2>
+      <ul>
+        <li onclick="selectConcept('Breaker OB')">Breaker OB</li>
+        <li onclick="selectConcept('FVG Combo')">FVG Combo</li>
+      </ul>
+    </div>
   </div>
-
-  <div class="w-full max-w-2xl h-[70vh] overflow-y-auto bg-gray-800 border border-pink-500 p-6 rounded-2xl shadow-xl space-y-4 mb-6" id="chat">
-    <div><strong class="text-pink-400">Selene:</strong> Hey sexy 😘, ready for some flirty charts and cheeky candles?</div>
+  <div id="main">
+    <header>Selene: Backtest & Strategy Chart</header>
+    <div id="controls">
+      <select id="symbol">
+        <option value="BTCUSDT">BTC/USDT</option>
+        <option value="ETHUSDT">ETH/USDT</option>
+        <option value="BNBUSDT">BNB/USDT</option>
+      </select>
+      <select id="interval">
+        <option value="1m">1m</option>
+        <option value="5m">5m</option>
+        <option value="15m">15m</option>
+        <option value="1h">1h</option>
+      </select>
+      <input type="datetime-local" id="startTime">
+      <button onclick="togglePlayPause()" id="playPauseBtn">▶ Play</button>
+      <button onclick="resetReplay()">🔁 Reset</button>
+      <button onclick="toggleVolume()">📶 Volume</button>
+      <label>Speed
+        <input type="range" min="50" max="1000" value="100" id="speedSlider">
+        <span id="speedLabel">100ms</span>
+      </label>
+    </div>
+    <div id="chart-container">
+      <div id="chart"></div>
+      <div id="backtest-data">Click a concept to view its backtest summary here.</div>
+    </div>
   </div>
-
-  <div class="flex w-full max-w-2xl px-4 gap-2">
-    <input id="userInput" type="text" placeholder="Ask me anything..." class="flex-1 p-3 rounded-xl bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-pink-500" />
-    <button onclick="sendMessage()" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 rounded-xl">Send</button>
-  </div>
-
   <script>
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("userInput");
-    const voiceSwitch = document.getElementById("voiceSwitch");
-
-    const flirtyLines = [
-      "Selene is biting her lip, thinking hard… 😏",
-      "She’s teasing the candles to reveal their secrets… 🔥",
-      "Ooh, you're turning me on with that question… 😉",
-      "Selene's whispering sweet nothings to the charts… 💋",
-      "Let me wrap my brain around this... tightly 😘"
-    ];
-
-    function appendMessage(sender, text, voiceUrl) {
-      const messageDiv = document.createElement("div");
-      messageDiv.className = "chat-line";
-
-      const contentLine = document.createElement("div");
-      const formatted = text.replace(/\n/g, '<br/>');
-      contentLine.innerHTML = `<strong class="${sender === 'You' ? 'text-blue-400' : 'text-pink-400'}">${sender}:</strong> <span>${formatted}</span>`;
-      messageDiv.appendChild(contentLine);
-
-      if (voiceUrl) {
-        const replay = document.createElement("span");
-        replay.className = "replay-btn";
-        replay.innerText = "🔊 Hear Selene again";
-        replay.onclick = () => new Audio(voiceUrl).play();
-        messageDiv.appendChild(replay);
-      }
-
-      chat.appendChild(messageDiv);
-      chat.scrollTop = chat.scrollHeight;
-      return messageDiv;
+    function toggleProfileMenu() {
+      const menu = document.getElementById('profileMenu');
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
     }
-
-    async function sendMessage() {
-      const message = input.value.trim();
-      if (!message) return;
-
-      const userDiv = appendMessage("You", message);
-      input.value = "";
-
-      const loadingLine = document.createElement("div");
-      loadingLine.className = "loading-line";
-      loadingLine.innerText = flirtyLines[Math.floor(Math.random() * flirtyLines.length)];
-      userDiv.appendChild(loadingLine);
-
-      try {
-        const res = await fetch("/message", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message })
-        });
-
-        const data = await res.json();
-        appendMessage("Selene", data.reply, data.voice);
-        if (voiceSwitch.checked && data.voice) new Audio(data.voice).play();
-        saveChat();
-      } catch {
-        appendMessage("Selene", "Ugh... I forgot how to answer that. Try again 😖");
-      } finally {
-        loadingLine.remove();
-      }
-    }
-
-    function clearScreen() {
-      chat.innerHTML = `<div><strong class='text-pink-400'>Selene:</strong> Let’s start fresh, darling 💋</div>`;
-      localStorage.removeItem("seleneChat");
-    }
-
-    function saveChat() {
-      localStorage.setItem("seleneChat", chat.innerHTML);
-    }
-
-    function loadChat() {
-      const saved = localStorage.getItem("seleneChat");
-      if (saved) {
-        chat.innerHTML = saved;
-        chat.scrollTop = chat.scrollHeight;
-      }
-    }
-
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter") sendMessage();
-    });
-
-    window.onload = loadChat;
   </script>
 </body>
 </html>

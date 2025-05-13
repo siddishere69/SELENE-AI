@@ -1,83 +1,50 @@
-// === concepts.js ===
+// concepts.js
 const fs = require('fs');
 const path = require('path');
 
-const conceptsPath = path.join(__dirname, 'message', 'concepts.json');
+const FILE_PATH = path.join(__dirname, 'concepts.json');
 
-// Load existing concepts from file
+// Load existing concepts
 function loadConcepts() {
   try {
-    if (!fs.existsSync(conceptsPath)) {
-      fs.writeFileSync(conceptsPath, JSON.stringify([]));
-    }
-    const raw = fs.readFileSync(conceptsPath);
-    return JSON.parse(raw);
+    const data = fs.readFileSync(FILE_PATH);
+    return JSON.parse(data);
   } catch (err) {
-    console.error("Error loading concepts:", err);
     return [];
   }
 }
 
-// Save concepts back to file
+// Save concepts to file
 function saveConcepts(concepts) {
-  try {
-    fs.writeFileSync(conceptsPath, JSON.stringify(concepts, null, 2));
-  } catch (err) {
-    console.error("Error saving concepts:", err);
-  }
+  fs.writeFileSync(FILE_PATH, JSON.stringify(concepts, null, 2));
 }
 
-// Add a new basic concept
-function addConcept(description, strategyName = "Unnamed") {
+// Add a new concept
+function addConcept(name, description, logic) {
   const concepts = loadConcepts();
-  const newConcept = {
-    id: Date.now(),
-    name: strategyName,
-    description: description.trim(),
-    createdAt: new Date().toISOString()
-  };
-  concepts.push(newConcept);
+  const existing = concepts.find(c => c.name === name);
+  if (existing) return { success: false, message: 'Concept already exists' };
+  concepts.push({ name, description, logic, createdAt: new Date().toISOString() });
   saveConcepts(concepts);
-  return newConcept;
+  return { success: true, message: 'Concept added' };
 }
 
-// Add a structured concept
-function addConceptStructured({ name, entry, confirmation, stoploss, target }) {
-  const concepts = loadConcepts();
-  const structured = {
-    id: Date.now(),
-    name: name || "Unnamed",
-    entry: entry || "",
-    confirmation: confirmation || "",
-    stoploss: stoploss || "",
-    target: target || "",
-    createdAt: new Date().toISOString()
-  };
-  concepts.push(structured);
+// Get all concepts
+function listConcepts() {
+  return loadConcepts();
+}
+
+// Delete a concept
+function deleteConcept(name) {
+  let concepts = loadConcepts();
+  const originalLength = concepts.length;
+  concepts = concepts.filter(c => c.name !== name);
   saveConcepts(concepts);
-  return structured;
-}
-
-// Combine all saved concepts into a readable strategy
-function generateStrategyFromConcepts() {
-  const concepts = loadConcepts();
-  if (concepts.length === 0) return "You have no concepts yet.";
-
-  const steps = concepts.map((c, i) => {
-    if (c.description) {
-      return `${i + 1}. ${c.description}`;
-    } else {
-      return `${i + 1}. ${c.name}\n   Entry: ${c.entry}\n   Confirmation: ${c.confirmation}\n   Stop Loss: ${c.stoploss}\n   Target: ${c.target}`;
-    }
-  });
-
-  return `Here's a combined strategy using your saved concepts:\n` + steps.join('\n');
+  return { deleted: originalLength - concepts.length };
 }
 
 module.exports = {
-  loadConcepts,
-  saveConcepts,
   addConcept,
-  addConceptStructured,
-  generateStrategyFromConcepts
+  listConcepts,
+  deleteConcept
 };

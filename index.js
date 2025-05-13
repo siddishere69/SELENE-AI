@@ -10,11 +10,9 @@ require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch');
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
 
-// === DB Setup ===
 const messageDir = path.join(__dirname, 'message');
 if (!fs.existsSync(messageDir)) fs.mkdirSync(messageDir);
 const adapter = new JSONFile(path.join(messageDir, 'history.json'));
@@ -31,10 +29,8 @@ const app = express();
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// === OpenAI Setup ===
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// === Google Sheets Setup ===
 const auth = new google.auth.GoogleAuth({
   credentials: {
     type: process.env.GOOGLE_TYPE,
@@ -48,48 +44,16 @@ const auth = new google.auth.GoogleAuth({
     auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_X509_CERT_URL,
     client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
   },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 const sheets = google.sheets({ version: 'v4', auth });
 const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-// === ElevenLabs Voice ===
-async function getVoiceFromText(text) {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || 'eVItLK1UvXctxuaRV2Oq';
-
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-    method: 'POST',
-    headers: {
-      'xi-api-key': apiKey,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      text,
-      model_id: 'eleven_multilingual_v2',
-      voice_settings: { stability: 0.4, similarity_boost: 0.85 }
-    })
-  });
-
-  if (!response.ok) {
-    console.error("❌ ElevenLabs Voice Error:", await response.text());
-    return null;
-  }
-
-  const audioBuffer = await response.buffer();
-  const filename = `selene-${Date.now()}.mp3`;
-  const filepath = path.join(__dirname, 'public', filename);
-  fs.writeFileSync(filepath, audioBuffer);
-  return `/${filename}`;
-}
-
-// === Message route ===
 app.post('/message', async (req, res) => {
   await db.read();
   const userText = req.body.message || '';
   db.data.conversation.push({ role: 'user', content: userText });
 
-  // Add concept
   if (userText.toLowerCase().startsWith('add concept:')) {
     const conceptText = userText.split(':')[1]?.trim();
     if (!conceptText) return res.json({ reply: "You need to tell me the concept after 'add concept:'" });
@@ -97,26 +61,55 @@ app.post('/message', async (req, res) => {
     return res.json({ reply: `Got it! Added this to your concept list: \"${conceptText}\"` });
   }
 
-  // Combine concepts
   if (userText.toLowerCase().includes('combine concepts')) {
     const strategy = concepts.generateStrategyFromConcepts();
     return res.json({ reply: strategy });
   }
 
-  // Backtest
   if (userText.toLowerCase().startsWith('backtest this:')) {
     const concept = userText.split(':')[1]?.trim();
     const result = backtest.backtestSimpleStrategy(concept);
     return res.json({ reply: result });
   }
 
-  // Binance balance
+  if (userText.toLowerCase().includes('candle')) {
+    try {
+      const parts = userText.trim().split(/\s+/);
+      const symbol = parts.find(p => /^[A-Z]+USDT$/.test(p.toUpperCase()))?.toUpperCase();
+      const interval = parts.find(p => /^(1m|3m|5m|15m|30m|1h|4h|1d)$/i.test(p)) || '15m';
+      const limit = parseInt(parts.find(p => /^\d+$/.test(p))) || 20;
+
+      if (!symbol) {
+        return res.json({
+          reply: "Selene needs a valid symbol like BTCUSDT 😘. Try again with something like: `get candles BTCUSDT 1m 20`"
+        });
+      }
+
+      const data = await binanceAPI.getCandles(symbol, interval, limit);
+      if (!data || data.length === 0) {
+        return res.json({ reply: "No candle data returned. Try a different symbol/timeframe." });
+      }
+
+      const formatted = data.map((c, i) =>
+        `${i + 1}. ${new Date(c.time).toLocaleString()} | O: ${c.open} H: ${c.high} L: ${c.low} C: ${c.close}`
+      ).join('\n');
+
+      const reply = `🕯️ Last ${limit} candles for ${symbol} (${interval}):\n${formatted}`;
+      return res.json({ reply });
+
+    } catch (err) {
+      console.error("❌ Binance Candle Fetch Failed:", err.message);
+      return res.json({
+        reply: "Selene tripped on her heels while fetching candles 😖 Try again with a valid symbol like BTCUSDT 1m 20"
+      });
+    }
+  }
+
   if (userText.toLowerCase().includes('my balance')) {
     try {
-      const balances = await binanceAPI.getAccountBalance();
+      const balances = await binanceAPI.getSpotBalance();
       const reply = `Here's your Binance balance:\n${JSON.stringify(balances.BTC)}`;
-      const voiceUrl = await getVoiceFromText(reply);
-      return res.json({ reply, voice: voiceUrl || null });
+      return res.json({ reply });
     } catch (err) {
       console.error("Binance Balance Error:", err.message);
       return res.json({ reply: "Selene couldn't fetch your Binance balance." });
@@ -124,35 +117,31 @@ app.post('/message', async (req, res) => {
   }
 
   if (userText.toLowerCase().includes("calendar")) {
-  try {
-    const calRes = await axios.get("http://127.0.0.1:5050/calendar");
-    const upcoming = calRes.data.events.map(
-      (e, i) => `${i + 1}. ${e.country} - ${e.event} (${e.date})`
-    ).join('\n');
-    const reply = `📅 Here are upcoming economic events:\n${upcoming}`;
-    const voiceUrl = await getVoiceFromText(reply);
-    return res.json({ reply, voice: voiceUrl });
-  } catch (err) {
-    console.error("Calendar API Error:", err.message);
-    return res.json({ reply: "Couldn't fetch calendar data 😵" });
+    try {
+      const calRes = await axios.get("http://127.0.0.1:5050/calendar");
+      const upcoming = calRes.data.events.map(
+        (e, i) => `${i + 1}. ${e.country} - ${e.event} (${e.date})`
+      ).join('\n');
+      const reply = `📅 Here are upcoming economic events:\n${upcoming}`;
+      return res.json({ reply });
+    } catch (err) {
+      console.error("Calendar API Error:", err.message);
+      return res.json({ reply: "Couldn't fetch calendar data 😵" });
+    }
   }
-}
 
-// === NewsData.io API ===
-if (userText.toLowerCase().includes('news')) {
-  try {
-    const newsRes = await axios.get(`https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_API_KEY}&q=finance&language=en`);
-    const articles = newsRes.data.results.slice(0, 5).map(item => `• ${item.title}`).join('\n');
-    const reply = `Here are the top 5 financial news headlines right now:\n${articles}`;
-    const voiceUrl = await getVoiceFromText(reply);
-    return res.json({ reply, voice: voiceUrl || null });
-  } catch (err) {
-    console.error("NewsData Error:", err.message);
-    return res.json({ reply: "Selene couldn't fetch news at the moment. Try again soon." });
+  if (userText.toLowerCase().includes('news')) {
+    try {
+      const newsRes = await axios.get(`https://newsdata.io/api/1/news?apikey=${process.env.NEWSDATA_API_KEY}&q=finance&language=en`);
+      const articles = newsRes.data.results.slice(0, 5).map(item => `• ${item.title}`).join('\n');
+      const reply = `Here are the top 5 financial news headlines right now:\n${articles}`;
+      return res.json({ reply });
+    } catch (err) {
+      console.error("NewsData Error:", err.message);
+      return res.json({ reply: "Selene couldn't fetch news at the moment. Try again soon." });
+    }
   }
-}
 
-  // Symbol price
   const cleanText = userText.toUpperCase().replace(/[^A-Z0-9 \/]/g, '');
   const keywords = cleanText.split(" ");
   const symbolMap = {
@@ -168,14 +157,12 @@ if (userText.toLowerCase().includes('news')) {
       const tdRes = await axios.get(`https://api.twelvedata.com/price?symbol=${symbol}&apikey=${process.env.TWELVE_DATA_KEY}`);
       const price = tdRes.data.price;
       const reply = `The current price of ${symbol} is $${price}.`;
-      const voiceUrl = await getVoiceFromText(reply);
-      return res.json({ reply, voice: voiceUrl || null });
+      return res.json({ reply });
     } catch (err) {
       return res.json({ reply: `Selene can't fetch ${symbol} right now.` });
     }
   }
 
-  // Default GPT response
   const systemMessage = {
     role: 'system',
     content: `You're Selene, a seductive but smart financial AI. Always answer clearly and helpfully first. Add confident, flirty energy *only* when appropriate.`
@@ -192,7 +179,6 @@ if (userText.toLowerCase().includes('news')) {
     db.data.conversation.push({ role: 'assistant', content: reply });
     await db.write();
 
-    const voiceUrl = await getVoiceFromText(reply);
     const timestamp = new Date().toLocaleString();
     await sheets.spreadsheets.values.append({
       spreadsheetId,
@@ -201,7 +187,7 @@ if (userText.toLowerCase().includes('news')) {
       requestBody: { values: [[timestamp, userText, reply]] }
     });
 
-    return res.json({ reply, voice: voiceUrl || null });
+    return res.json({ reply });
   } catch (err) {
     console.error("❌ GPT Error:", err.response?.data || err.message);
     return res.json({ reply: "Selene is having a brain fog moment. Try again soon." });
@@ -209,6 +195,6 @@ if (userText.toLowerCase().includes('news')) {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Selene server is live on port ${PORT}`);
 });
